@@ -35,24 +35,67 @@ class WorkflowStep:
         self.reviewer_selector = SelectUser(
             roles=["annotator", "reviewer", "manager"], multiple=True
         )
-        self.labler_selector = SelectUser(
+        self.labeler_selector = SelectUser(
             roles=["annotator", "reviewer"], multiple=True
         )
 
         self.confirm_button = Button("Confirm Selection")
-        self.summary_text = Text("REPLACE ME")
+
+        self.summary_text = Text()
+
+        @self.confirm_button.click
+        def validate_on_click():
+            self.validate_inputs()
+
+        @self.workspace_selector.value_changed
+        def on_workspace_change(workspace_id: int):
+            team_id = self.workspace_selector.get_team_id()
+            self.reviewer_selector.set_team_id(team_id)
+            self.labeler_selector.set_team_id(team_id)
 
         self._content = Container(
             widgets=[
                 self.workspace_selector,
                 self.class_selector,
                 self.reviewer_selector,
-                self.labler_selector,
+                self.labeler_selector,
                 self.summary_text,
                 self.confirm_button,
             ],
             # direction="horizontal",
         )
+
+    def validate_inputs(self) -> bool:
+        self.summary_text.text = ""
+        text = ""
+        workspace_id = self.workspace_selector.get_selected_id()
+        print("Validating inputs for workspace ID:", workspace_id)
+        if not workspace_id:
+            text += "Workspace is not selected. "
+        selected_classes = self.class_selector.get_selected_class()
+        print("Selected classes:", [cls.name for cls in selected_classes])
+        if not selected_classes:
+            text += "At least one class must be selected. "
+        selected_reviewers = self.reviewer_selector.get_selected_user()
+        print("Selected reviewers:", [user.login for user in selected_reviewers])
+        if not selected_reviewers:
+            text += "At least one reviewer must be selected. "
+        selected_labelers = self.labeler_selector.get_selected_user()
+        print("Selected labelers:", [user.login for user in selected_labelers])
+        if not selected_labelers:
+            text += "At least one labeler must be selected. "
+        if text:
+            self.summary_text.text = text
+            self.summary_text.status = "error"
+            return False
+        summary = (
+            f"The following classes were selected: {', '.join([cls.name for cls in selected_classes])}. "
+            f"Selected reviewers: {', '.join([user.login for user in selected_reviewers])}. "
+            f"Selected labelers: {', '.join([user.login for user in selected_labelers])}."
+        )
+        self.summary_text.text = summary
+        self.summary_text.status = "success"
+        return True
 
     @property
     def content(self) -> Optional[Widget]:
