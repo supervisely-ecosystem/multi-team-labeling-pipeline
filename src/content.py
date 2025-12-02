@@ -260,7 +260,7 @@ class Workflow(metaclass=Singleton):
         :param step_number: The step number to set as active.
         :type step_number: int
         """
-        if step_number < 1 or step_number > DEBUG_NUMBER_OF_TEAMS:
+        if step_number < 1 or step_number > g.NUMBER_OF_TEAMS:
             sly.logger.warning(f"Step number {step_number} is out of range.")
             return None
         sly.logger.info(f"Setting active workflow step to: {step_number}")
