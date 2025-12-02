@@ -139,7 +139,6 @@ class WorkflowStep:
         :param value: True to activate the step, False to deactivate.
         :type value: bool
         """
-        print("--------------------------------")
         self._active = value
         if value:
             self.confirm_button.enable()
