@@ -17,8 +17,6 @@ from typing import Optional, Dict
 from supervisely.app.singleton import Singleton
 from supervisely.api.user_api import UserInfo
 
-DEBUG_NUMBER_OF_TEAMS = 8
-
 select_project = SelectProject(
     default_id=g.PROJECT_ID, workspace_id=g.WORKSPACE_ID, compact=True
 )
@@ -237,14 +235,14 @@ class Workflow(metaclass=Singleton):
     def __init__(self):
         self.steps: Dict[int, WorkflowStep] = {}
         widgets: list[Widget] = []
-        for step_number in range(1, DEBUG_NUMBER_OF_TEAMS + 1):
+        for step_number in range(1, g.NUMBER_OF_TEAMS + 1):
             workflow_step = WorkflowStep(step_number)
             self.steps[step_number] = workflow_step
             if workflow_step.content:
                 widgets.append(workflow_step.content)
 
         self.stepper = Stepper(
-            titles=[f"Team {i}" for i in range(1, DEBUG_NUMBER_OF_TEAMS + 1)],
+            titles=[f"Team {i}" for i in range(1, g.NUMBER_OF_TEAMS + 1)],
             widgets=widgets,
             active_step=1,
         )
