@@ -1,8 +1,10 @@
 import supervisely as sly
 from supervisely.app.widgets import (
+    SelectTeam,
     SelectWorkspace,
     SelectUser,
     SelectClass,
+    SelectTag,
     Container,
     Widget,
     Card,
@@ -168,12 +170,35 @@ class WorkflowStep:
         self.labeler_selector.set_selected_users_by_ids(labeler_ids)
 
     def _add_content(self) -> None:
-        self.workspace_selector = SelectWorkspace()
+        self.team_selector = SelectTeam(show_label=False)
+        team_field = Field(
+            self.team_selector,
+            title="Team",
+        )
+        self.workspace_selector = SelectWorkspace(compact=True, show_label=False)
+        workspace_field = Field(
+            self.workspace_selector,
+            title="Workspace",
+        )
+
+        team_workspace_flexbox = Flexbox(
+            [team_field, workspace_field],
+        )
 
         self.class_selector = SelectClass(multiple=True)
         class_field = Field(
             self.class_selector,
             title="Classes",
+        )
+
+        self.tag_selector = SelectTag(multiple=True)
+        tag_field = Field(
+            self.tag_selector,
+            title="Tags",
+        )
+
+        class_tag_flexbox = Flexbox(
+            [class_field, tag_field],
         )
 
         self.reviewer_selector = SelectUser(
@@ -213,9 +238,9 @@ class WorkflowStep:
 
         content = Container(
             widgets=[
-                self.workspace_selector,
+                team_workspace_flexbox,
                 users_container,
-                class_field,
+                class_tag_flexbox,
                 self.summary_text,
             ],
         )
