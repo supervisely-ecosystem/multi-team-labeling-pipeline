@@ -47,6 +47,9 @@ MULTITEAM_LABELING_WORKFLOW_MARKER = "MTLWQ"
 WAIT_TIME = 5  # seconds
 MONITORING_INTERVAL = 10  # seconds between checks
 
+RESET_ICON = "zmdi zmdi-close"
+UPDATE_ICON = "zmdi zmdi-refresh"
+
 
 class WorkflowMonitor(metaclass=Singleton):
     """Manages background monitoring of workflow status."""
@@ -154,6 +157,21 @@ settings_card = Card(
     content=Container(widgets=[select_project, select_dataset, workflow_modal]),
     content_top_right=buttons_flexbox,
 )
+
+
+@reset_workflow_button.click
+def reset_workflow():
+    sly.logger.info(
+        f"Reset/Update workflow button clicked. Icon: {reset_workflow_button.icon}"
+    )
+    if UPDATE_ICON in reset_workflow_button.icon:
+        sly.logger.info("Update button clicked - refreshing workflow status.")
+        update_dataset(select_dataset.get_selected_id())
+        reset_workflow_button.icon = RESET_ICON
+    elif RESET_ICON in reset_workflow_button.icon:
+        sly.logger.info("Resetting workflow configuration via button click.")
+        Workflow().reset_workflow()
+        reset_workflow_button.icon = UPDATE_ICON
 
 
 def get_existing_workflow_config(project_id: int) -> Dict[int, Dict[str, Any]]:
@@ -826,21 +844,18 @@ class Workflow(metaclass=Singleton):
                 sly.logger.info(f"Loading data for Workflow Step {step_number}")
                 self.steps[step_number].update_from_json(step_data)
 
-    # @staticmethod
-    # @reset_workflow_button.click
-    # def reset_workflow():
-    #     sly.logger.info("Resetting workflow configuration.")
-    #     workflow = Workflow()
-    #     for step_number, workflow_step in workflow.steps.items():
-    #         sly.logger.info(f"Resetting Workflow Step {step_number}")
+    def reset_workflow(self):
+        sly.logger.info("Resetting workflow configuration.")
+        for step_number, workflow_step in self.steps.items():
+            sly.logger.info(f"Resetting Workflow Step {step_number}")
 
-    #         workflow_step.team_id = None
-    #         workflow_step.workspace_id = None
-    #         workflow_step.class_selector.set_value([])
-    #         workflow_step.tag_selector.set_value([])
-    #         workflow_step.reviewer_selector.set_value([])
-    #         workflow_step.labeler_selector.set_value([])
-    #     launch_workflow_button.disable()
+            workflow_step.team_selector.set_team_id(None)
+            workflow_step.workspace_selector.set_workspace_id(None)
+            workflow_step.class_selector.set_value([])
+            workflow_step.tag_selector.set_value([])
+            workflow_step.reviewer_selector.set_value([])
+            workflow_step.labeler_selector.set_value([])
+        launch_workflow_button.disable()
 
     def get_layout(self):
         return Container(widgets=[settings_card, self._layout])
