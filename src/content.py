@@ -24,6 +24,7 @@ from supervisely.app.singleton import Singleton
 from supervisely.api.user_api import UserInfo
 from supervisely.api.labeling_queue_api import LabelingQueueInfo
 from time import sleep
+import threading
 
 
 class WorkflowSettings(metaclass=Singleton):
@@ -44,10 +45,58 @@ class WorkflowSettings(metaclass=Singleton):
 MULTITEAM_LABELING_WORKFLOW_TITLE = "multi_team_labeling_workflow"
 MULTITEAM_LABELING_WORKFLOW_MARKER = "MTLWQ"
 WAIT_TIME = 5  # seconds
+MONITORING_INTERVAL = 10  # seconds between checks
+
+
+class WorkflowMonitor(metaclass=Singleton):
+    """Manages background monitoring of workflow status."""
+
+    def __init__(self):
+        self.active = False
+        self.thread = None
+
+    def start(self):
+        """Start the monitoring loop."""
+        if self.active:
+            self.stop()
+
+        sly.logger.info("Starting workflow monitoring")
+        update_workflow_status()
+
+        self.active = True
+        self.thread = threading.Thread(target=self._monitoring_loop, daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        """Stop the monitoring loop."""
+        if not self.active:
+            return
+
+        sly.logger.info("Stopping workflow monitoring")
+        self.active = False
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=2)
+        sly.logger.info("Workflow monitoring stopped")
+
+    def _monitoring_loop(self):
+        """Background loop that periodically updates workflow status."""
+        while self.active:
+            try:
+                update_workflow_status()
+                sly.logger.debug(f"Status updated, waiting {MONITORING_INTERVAL}s")
+
+                # Sleep in small increments to allow quick stop
+                for _ in range(MONITORING_INTERVAL):
+                    if not self.active:
+                        break
+                    sleep(1)
+            except Exception as e:
+                sly.logger.error(f"Error in monitoring loop: {e}")
+                sleep(MONITORING_INTERVAL)
 
 
 status_texts = {
-    step_number: Text("NO_INFO") for step_number in range(1, g.NUMBER_OF_TEAMS + 1)
+    step_number: Text("Loading...") for step_number in range(1, g.NUMBER_OF_TEAMS + 1)
 }
 
 feed_items = {
@@ -204,11 +253,8 @@ def update_step_display(
     activity_feed.set_status(number=step_number, status=item_status)
 
 
-@launch_workflow_button.click
-def launch_workflow():
-    """Launch and monitor the multi-team labeling workflow."""
-    sly.logger.info("Launching workflow...")
-
+def update_workflow_status():
+    """Update workflow status for all steps."""
     move_forward_needed = False
 
     for step_number, (dataset_info, queue_info) in enumerate(
@@ -222,6 +268,20 @@ def launch_workflow():
             step_number, dataset_info, updated_queue_info or queue_info, item_status
         )
 
+
+@workflow_modal.value_changed
+def handle_modal_state(is_open: bool):
+    """Handle modal open/close events."""
+    if is_open:
+        WorkflowMonitor().start()
+    else:
+        WorkflowMonitor().stop()
+
+
+@launch_workflow_button.click
+def launch_workflow():
+    """Launch the multi-team labeling workflow."""
+    sly.logger.info("Launching workflow...")
     workflow_modal.show()
 
 
