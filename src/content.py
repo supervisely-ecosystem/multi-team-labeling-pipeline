@@ -15,13 +15,22 @@ from supervisely.app.widgets import (
     Field,
     Flexbox,
     Empty,
+    Modal,
 )
 import src.globals as g
 from typing import Optional, Dict, Any
 from supervisely.app.singleton import Singleton
 from supervisely.api.user_api import UserInfo
 
+
+class WorkflowSettings(metaclass=Singleton):
+    PROJECT_INFO: Optional[sly.ProjectInfo] = None
+    DATASET_INFO: Optional[sly.DatasetInfo] = None
+
+
 MULTITEAM_LABELING_WORKFLOW_TITLE = "multi_team_labeling_workflow"
+
+workflow_modal = Modal("Workflow Overview")
 
 select_project = SelectProject(
     default_id=g.PROJECT_ID, workspace_id=g.WORKSPACE_ID, compact=True
@@ -64,7 +73,7 @@ buttons_flexbox = Flexbox(
 settings_card = Card(
     title="Settings",
     description="Select the project and dataset to configure the multi-team labeling workflow.",
-    content=Container(widgets=[select_project, select_dataset]),
+    content=Container(widgets=[select_project, select_dataset, workflow_modal]),
     content_top_right=buttons_flexbox,
 )
 
@@ -75,6 +84,12 @@ def get_existing_workflow_config(project_id: int) -> Dict[int, Dict[str, Any]]:
         MULTITEAM_LABELING_WORKFLOW_TITLE, {}
     )
     return existing_workflow_config
+
+
+@launch_workflow_button.click
+def launch_workflow():
+    sly.logger.info("Launching workflow...")
+    workflow_modal.show()
 
 
 @save_workflow_button.click
@@ -104,7 +119,17 @@ def save_workflow():
 @select_dataset.value_changed
 def on_dataset_change(dataset_id: int):
     sly.logger.info(f"Dataset changed to ID: {dataset_id}")
+    if not dataset_id:
+        sly.logger.warning("No dataset selected. Cannot load workflow.")
+        return
     project_id = select_project.get_selected_id()
+    WorkflowSettings().PROJECT_INFO = g.api.project.get_info_by_id(project_id)
+    WorkflowSettings().DATASET_INFO = g.api.dataset.get_info_by_id(dataset_id)
+    sly.logger.info(
+        f"Updated WorkflowSettings with Project name: {WorkflowSettings().PROJECT_INFO.name}, "
+        f"Dataset name: {WorkflowSettings().DATASET_INFO.name}"
+    )
+
     sly.logger.info(
         f"Loading workflow for Project ID: {project_id}, Dataset ID: {dataset_id}"
     )
@@ -297,9 +322,6 @@ class WorkflowStep:
 
             @widget.value_changed
             def on_value_change(*args):
-                sly.logger.info(
-                    f"Workflow Step {self.step_number} - Widget '{widget}' value changed."
-                )
                 Workflow().all_steps_filled()
 
         content = Container(
@@ -357,6 +379,22 @@ class Workflow(metaclass=Singleton):
             if step_number in self.steps:
                 sly.logger.info(f"Loading data for Workflow Step {step_number}")
                 self.steps[step_number].update_from_json(step_data)
+
+    @staticmethod
+    @reset_workflow_button.click
+    def reset_workflow():
+        sly.logger.info("Resetting workflow configuration.")
+        workflow = Workflow()
+        for step_number, workflow_step in workflow.steps.items():
+            sly.logger.info(f"Resetting Workflow Step {step_number}")
+
+            workflow_step.team_id = None
+            workflow_step.workspace_id = None
+            workflow_step.class_selector.set_value([])
+            workflow_step.tag_selector.set_value([])
+            workflow_step.reviewer_selector.set_value([])
+            workflow_step.labeler_selector.set_value([])
+        launch_workflow_button.disable()
 
     def get_layout(self):
         return Container(widgets=[settings_card, self._layout])
