@@ -17,6 +17,7 @@ from supervisely.app.widgets import (
     Empty,
     Modal,
     ActivityFeed,
+    Checkbox,
 )
 import src.globals as g
 from typing import Optional, Dict, Any, List, Tuple
@@ -121,7 +122,8 @@ select_project = SelectProject(
 select_dataset = SelectDataset(
     default_id=g.DATASET_ID, project_id=g.PROJECT_ID, compact=True
 )
-
+require_classes_checkbox = Checkbox(content="Classes labeling is required")
+require_tags_checkbox = Checkbox(content="Tags labeling is required")
 
 save_workflow_button = Button(
     "",
@@ -154,7 +156,15 @@ buttons_flexbox = Flexbox(
 settings_card = Card(
     title="Settings",
     description="Select the project and dataset to configure the multi-team labeling workflow.",
-    content=Container(widgets=[select_project, select_dataset, workflow_modal]),
+    content=Container(
+        widgets=[
+            select_project,
+            select_dataset,
+            require_classes_checkbox,
+            require_tags_checkbox,
+            workflow_modal,
+        ]
+    ),
     content_top_right=buttons_flexbox,
 )
 
@@ -327,6 +337,27 @@ def save_workflow():
     sly.logger.info("Workflow configuration saved successfully.")
 
 
+@select_project.value_changed
+def on_project_change(project_id: int):
+    select_dataset.set_project_id(project_id)
+    update_dataset(select_dataset.get_selected_id())
+
+    # Get project metadata from API
+    project_meta_json = g.api.project.get_meta(project_id)
+    project_meta = sly.ProjectMeta.from_json(project_meta_json)
+
+    # Get step 1 to populate widgets for classes and tags
+    workflow_step_1 = Workflow().steps.get(1)
+    if workflow_step_1:
+        # Set classes from project meta
+        if project_meta.obj_classes:
+            workflow_step_1.class_selector.set(list(project_meta.obj_classes))
+
+        # Set tags from project meta
+        if project_meta.tag_metas:
+            workflow_step_1.tag_selector.set(list(project_meta.tag_metas))
+
+
 @select_dataset.value_changed
 def on_dataset_change(dataset_id: int):
     update_dataset(dataset_id)
@@ -378,9 +409,15 @@ class WorkflowStep:
             return False
         if not self.workspace_selector.get_selected_id():
             return False
-        if not self.class_selector.get_selected_class():
+        if (
+            not self.class_selector.get_selected_class()
+            and require_classes_checkbox.is_checked()
+        ):
             return False
-        if not self.tag_selector.get_selected_tag():
+        if (
+            not self.tag_selector.get_selected_tag()
+            and require_tags_checkbox.is_checked()
+        ):
             return False
         if not self.reviewer_selector.get_selected_user():
             return False
@@ -510,7 +547,6 @@ class WorkflowStep:
         )
 
         g.api.project.update_meta(self.project_id, project_meta.to_json())
-
         sly.logger.info(
             f"Project meta updated successfully for project ID {self.project_id}."
         )
