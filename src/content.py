@@ -349,6 +349,16 @@ def on_project_change(project_id: int):
     # Get step 1 to populate widgets for classes and tags
     workflow_step_1 = Workflow().steps.get(1)
     if workflow_step_1:
+        workflow_step_1.team_selector.set_team_id(g.TEAM_ID)
+        workflow_step_1.workspace_selector.set_ids(
+            team_id=g.TEAM_ID, workspace_id=g.WORKSPACE_ID
+        )
+        # workflow_step_1.workspace_selector.enable()
+
+        # Initialize user selectors with the team_id
+        workflow_step_1.reviewer_selector.set_team_id(g.TEAM_ID)
+        workflow_step_1.labeler_selector.set_team_id(g.TEAM_ID)
+
         # Set classes from project meta
         if project_meta.obj_classes:
             workflow_step_1.class_selector.set(list(project_meta.obj_classes))
@@ -596,21 +606,53 @@ class WorkflowStep:
             return
 
         previous_project_id = previous_step.project_id
-        if not previous_project_id:
+        previous_dataset_id = previous_step.dataset_id
+        if not previous_project_id or not previous_dataset_id:
             sly.logger.warning(
-                "Cannot copy dataset: previous step's project ID is missing."
+                "Cannot copy dataset: previous step's project ID or dataset ID is missing."
             )
             return
 
-        dst_name = WorkflowSettings().get_project_name()
-
-        g.api.project.clone(
-            id=previous_project_id, dst_workspace_id=workspace_id, dst_name=dst_name
-        )
+        dst_project_name = WorkflowSettings().get_project_name()
+        dst_dataset_name = WorkflowSettings().get_dataset_name()
 
         sly.logger.info(
-            f"Cloned project ID {previous_project_id} to workspace ID {workspace_id} "
-            f"with name {dst_name} for workflow step {self.step_number}."
+            f"Copying dataset ID {previous_dataset_id} from project ID {previous_project_id} "
+            f"to workspace ID {workspace_id} with project name {dst_project_name} "
+            f"and dataset name {dst_dataset_name} for workflow step {self.step_number}."
+        )
+
+        # Get the project meta from the previous step to copy classes and tags
+        previous_project_meta_json = g.api.project.get_meta(previous_project_id)
+        previous_project_meta = sly.ProjectMeta.from_json(previous_project_meta_json)
+
+        # Create new project in the target workspace with the same type and meta
+        new_project_info = g.api.project.create(
+            workspace_id,
+            dst_project_name,
+        )
+        new_project_id = new_project_info.id
+
+        # Set the project meta (classes and tags)
+        g.api.project.update_meta(new_project_id, previous_project_meta.to_json())
+
+        # Copy the dataset to the new project
+        new_dataset_info = g.api.dataset.copy(
+            new_project_id,
+            previous_dataset_id,
+            new_name=dst_dataset_name,
+            with_annotations=True,
+        )
+
+        # Update this step's project_id and dataset_id
+        self.project_id = new_project_id
+        if new_dataset_info:
+            self.dataset_id = new_dataset_info.id
+
+        sly.logger.info(
+            f"Copied dataset ID {previous_dataset_id} from project ID {previous_project_id} "
+            f"to new project ID {new_project_id} in workspace ID {workspace_id} "
+            f"with name {dst_dataset_name} for workflow step {self.step_number}."
         )
 
     @staticmethod
