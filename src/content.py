@@ -122,8 +122,23 @@ select_project = SelectProject(
 select_dataset = SelectDataset(
     default_id=g.DATASET_ID, project_id=g.PROJECT_ID, compact=True
 )
-require_classes_checkbox = Checkbox(content="Classes labeling is required")
-require_tags_checkbox = Checkbox(content="Tags labeling is required")
+require_classes_checkbox = Checkbox(
+    content="Classes labeling is required", checked=True
+)
+require_tags_checkbox = Checkbox(content="Tags labeling is required", checked=True)
+
+
+@require_classes_checkbox.value_changed
+def on_require_classes_change(is_checked: bool):
+    sly.logger.info(f"Require classes checkbox changed: {is_checked}")
+    Workflow().all_steps_filled()
+
+
+@require_tags_checkbox.value_changed
+def on_require_tags_change(is_checked: bool):
+    sly.logger.info(f"Require tags checkbox changed: {is_checked}")
+    Workflow().all_steps_filled()
+
 
 save_workflow_button = Button(
     "",
