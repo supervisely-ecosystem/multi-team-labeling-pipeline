@@ -34,7 +34,7 @@ You can launch the Multi-Team Labeling Workflow in three ways:
 
 1. **From Ecosystem** (Create new workflow):
 
-<img src="https://github.com/supervisely-ecosystem/multi-team-labeling-pipeline/releases/download/v0.0.1/2025-12-10_13-36.png"/><br><br>
+<img src="https://github.com/supervisely-ecosystem/multi-team-labeling-pipeline/releases/download/v0.0.1/screenshot-dev-internal-supervisely-com-ecosystem-apps-285a45e40caf241b2956-1765376752654.png"/><br><br>
 
 - Navigate to the Ecosystem in your Supervisely instance
 - Find "Multi-Team Labeling Workflow" app
