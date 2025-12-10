@@ -9,7 +9,7 @@
   "entrypoint": "python -m uvicorn src.main:app --host 0.0.0.0 --port 8000",
   "port": 8000,
   "task_location": "workspace_tasks",
-  "icon": "",
+  "icon": "https://github.com/supervisely-ecosystem/multi-team-labeling-pipeline/releases/download/v0.0.1/icon.png",
   "icon_cover": true,
   "headless": false,
   "icon_background": "#FFFFFF",
